@@ -100,3 +100,30 @@ export const RECORD_PLAYERS: RecordPlayer[] = [
   { rank: 19, name: "Ahmed Yasser", nameEn: "Ahmed Yasser", apps: 103, goals: 15, assists: 10, photo: "https://img.a.transfermarkt.technology/portrait/big/277972-1553527336.jpg" },
   { rank: 20, name: "Ahmed Shousha", nameEn: "Ahmed Shousha", apps: 101, goals: 1, assists: 6, photo: "https://img.a.transfermarkt.technology/portrait/big/371596-1438177148.jpg" },
 ];
+
+// صور مدربين حقيقية (من ويكيبيديا / في الجول) لمن لم تتوفر لهم صورة في Transfermarkt.
+import coachAhmedSamy from "@/assets/coaches/ahmed-samy.jpg.asset.json";
+import coachEmadElNahhas from "@/assets/coaches/emad-el-nahhas.jpg.asset.json";
+import coachTarekYehia from "@/assets/coaches/tarek-yehia.jpg.asset.json";
+import coachTahaBasry from "@/assets/coaches/taha-basry.jpg.asset.json";
+import coachFaroukGaafar from "@/assets/coaches/farouk-gaafar.jpg.asset.json";
+import coachAbouRegaila from "@/assets/coaches/mahmoud-abou-regaila.jpg.asset.json";
+import coachOscarFullone from "@/assets/coaches/oscar-fullone.jpg.asset.json";
+import coachWojciechLazarek from "@/assets/coaches/wojciech-lazarek.jpg.asset.json";
+import coachMohsenSaleh from "@/assets/people/legend-mohsen-saleh.jpeg.asset.json";
+
+const EXTRA_COACH_PHOTOS: Record<string, string> = {
+  "Ahmed Samy": coachAhmedSamy.url,
+  "Emad El-Nahhas": coachEmadElNahhas.url,
+  "Tarek Yehia": coachTarekYehia.url,
+  "Taha Basry": coachTahaBasry.url,
+  "Farouk Gaafar": coachFaroukGaafar.url,
+  "Mahmoud Abou-Regaila": coachAbouRegaila.url,
+  "Oscar Fulloné": coachOscarFullone.url,
+  "Wojciech Lazarek": coachWojciechLazarek.url,
+  "Mohsen Saleh": coachMohsenSaleh.url,
+};
+
+for (const spell of COACH_HISTORY) {
+  if (!spell.photo) spell.photo = EXTRA_COACH_PHOTOS[spell.nameEn] ?? null;
+}
