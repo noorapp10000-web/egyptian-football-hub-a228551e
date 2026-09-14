@@ -3,6 +3,8 @@
  * كل القراءات تحدث على السيرفر مع كاش مشترك، فلا يتصل المستخدم بالمصادر مباشرة.
  */
 
+import { normalizeEventType } from "./match-events";
+
 export const TEAM_ID = 8;
 export const LEAGUE_ID = 1667;
 export const SEASON = "2026-2027";
@@ -442,7 +444,7 @@ export function parseMatchDetail(html: string): MatchDetail | null {
       id: Number(e["Id"]),
       minute: e["CalculatedTime"] == null ? null : Number(e["CalculatedTime"]),
       addedTime: e["CalculatedAdditionalTime"] ? Number(e["CalculatedAdditionalTime"]) : null,
-      type: String(e["MatchEventTypeName"] ?? ""),
+      type: normalizeEventType(String(e["MatchEventTypeName"] ?? "")),
       half: (e["MatchStatusName"] as unknown as string) ?? null,
       teamId: e["TeamId"] == null ? null : Number(e["TeamId"]),
       teamName: (e["TeamName"] as unknown as string) ?? null,
@@ -559,7 +561,7 @@ export function parseCoverageEvents(
     for (const p of item.matchAll(/<p class="([rl])"[^>]*>([\s\S]*?)<\/p>/gi)) {
       const side = p[1] === "r" ? homeTeam : awayTeam;
       const body = p[2]!;
-      const type = decode(body.match(/alt="([^"]*)"/i)?.[1] ?? "").trim();
+      const type = normalizeEventType(decode(body.match(/alt="([^"]*)"/i)?.[1] ?? "").trim());
       const anchor = body.match(/<a[^>]*href="\/players\/(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
       const player = anchor ? decode(anchor[2]!).trim() : null;
       if (!type && !player) continue;
@@ -728,6 +730,12 @@ export function deriveStats(
     return null;
   };
 
+  const eventCounts: Record<string, [number, number]> = {
+    corners: [0, 0],
+    offsides: [0, 0],
+    injuries: [0, 0],
+  };
+
   const cards: Record<string, [number, number]> = {
     yellow: [0, 0],
     red: [0, 0],
@@ -739,6 +747,15 @@ export function deriveStats(
     if (/yellow/i.test(e.type)) cards["yellow"]![side] += 1;
     else if (/red/i.test(e.type)) cards["red"]![side] += 1;
     else if (/substitution/i.test(e.type)) cards["subs"]![side] += 1;
+    else if (/corner/i.test(e.type)) eventCounts["corners"]![side] += 1;
+    else if (/offside/i.test(e.type)) eventCounts["offsides"]![side] += 1;
+    else if (/injury/i.test(e.type)) eventCounts["injuries"]![side] += 1;
+  }
+
+  // الأحداث الرسمية أدق من الاستنتاج من التعليق، فتحل مكانه لما تكون متاحة.
+  for (const key of ["corners", "offsides"] as const) {
+    const official = eventCounts[key]!;
+    if (official[0] + official[1] > 0) counters[key] = official;
   }
 
   const labels: { key: string; label: string; from: Record<string, [number, number]> }[] = [
@@ -751,6 +768,7 @@ export function deriveStats(
     { key: "yellow", label: "بطاقات صفراء", from: cards },
     { key: "red", label: "بطاقات حمراء", from: cards },
     { key: "subs", label: "التبديلات", from: cards },
+    { key: "injuries", label: "الإصابات", from: eventCounts },
   ];
 
   const rows: StatRow[] = labels
@@ -977,9 +995,21 @@ export async function loadMatchDetail(matchId: number) {
   const entry = await cached(`match-${matchId}`, 20_000, async () => {
     const { matches } = await loadMatches();
     const known = matches.find((m) => m.matchId === matchId);
-    const url = known?.url ?? `${FG}/matches/${matchId}/x`;
-    const detail = parseMatchDetail(await fetchHtml(url));
-    if (!detail) throw new Error("تفاصيل المباراة غير متاحة");
+    const slug = known?.slug || "x";
+    // صفحة التغطية (أحداث المباراة) فيها قائمة الأحداث الكاملة: تبديلات، ركنيات،
+    // إصابات، ركلات جزاء... بينما الصفحة الرئيسية بتعرض قائمة مختصرة.
+    const url = `${FG}/matches/${matchId}/coverage/${slug}`;
+    const html = await fetchHtml(url);
+    const detail = parseMatchDetail(html);
+    if (!detail) {
+      const fallback = parseMatchDetail(await fetchHtml(known?.url ?? `${FG}/matches/${matchId}/x`));
+      if (!fallback) throw new Error("تفاصيل المباراة غير متاحة");
+      return fallback;
+    }
+    if (detail.events.length === 0) {
+      const scraped = parseCoverageEvents(html, detail.homeTeam as { id: number; name: string }, detail.awayTeam as { id: number; name: string });
+      if (scraped.length > 0) detail.events = scraped;
+    }
     return detail;
   });
   return {
