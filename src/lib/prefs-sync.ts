@@ -38,10 +38,12 @@ export function usePrefsSync(
       ]);
       if (cancelled) return;
       const patch: Partial<Prefs> = {};
-      if (profile?.username) patch.username = profile.username;
+      const username = profile?.["username"];
+      if (typeof username === "string" && username) patch.username = username;
       if (row) {
-        patch.notificationsEnabled = row.enabled;
-        const types = (row.types ?? {}) as Record<string, boolean>;
+        if (typeof row["enabled"] === "boolean") patch.notificationsEnabled = row["enabled"];
+        const types = (row["types"] ?? {}) as Record<string, boolean>;
+
         if (Object.keys(types).length > 0) {
           patch.notifications = { ...prefs.notifications, ...types };
         }
