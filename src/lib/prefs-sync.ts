@@ -5,6 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Prefs } from "@/lib/prefs";
 
+/* أنواع الجداول المولّدة بتتحدث بعد أول نشر، فبنستخدم واجهة مرنة لحد ساعتها. */
+type LooseRow = Record<string, unknown> | null;
+type LooseTable = {
+  select: (cols: string) => {
+    eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: LooseRow }> };
+  };
+  upsert: (values: Record<string, unknown>) => Promise<unknown>;
+};
+const db = supabase as unknown as { from: (table: string) => LooseTable };
+
 export function usePrefsSync(
   prefs: Prefs,
   ready: boolean,
@@ -19,8 +29,8 @@ export function usePrefsSync(
     let cancelled = false;
     (async () => {
       const [{ data: profile }, { data: row }] = await Promise.all([
-        supabase.from("profiles").select("username").eq("id", userId).maybeSingle(),
-        supabase
+        db.from("profiles").select("username").eq("id", userId).maybeSingle(),
+        db
           .from("notification_prefs")
           .select("enabled, types")
           .eq("user_id", userId)
@@ -47,11 +57,11 @@ export function usePrefsSync(
   return {
     saveUsername: async (username: string) => {
       if (!userId) return;
-      await supabase.from("profiles").upsert({ id: userId, username, updated_at: new Date().toISOString() });
+      await db.from("profiles").upsert({ id: userId, username, updated_at: new Date().toISOString() });
     },
     saveNotifications: async (enabled: boolean, types: Record<string, boolean>) => {
       if (!userId) return;
-      await supabase
+      await db
         .from("notification_prefs")
         .upsert({ user_id: userId, enabled, types, updated_at: new Date().toISOString() });
     },
