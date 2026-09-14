@@ -25,9 +25,48 @@ export const EVENT_LABEL: Record<string, string> = {
   "half-time": "نهاية الشوط الأول",
   "full-time": "نهاية المباراة",
   lineup: "التشكيل الرسمي",
+  assist: "صناعة هدف",
 };
 
-export const eventLabel = (type: string) => EVENT_LABEL[type] ?? type;
+/** أسماء الأحداث كما تكتبها "في الجول" بالعربي → المفاتيح الداخلية. */
+const ARABIC_TYPES: { key: string; test: RegExp }[] = [
+  { key: "own-goal", test: /هدف عكس/ },
+  { key: "penalty", test: /هدف من ركلة جزاء|هدف من ضربة جزاء/ },
+  { key: "missed-penalty", test: /(ضائعة|إهدار|أهدر).{0,12}(ركلة|ضربة) جزاء/ },
+  { key: "penalty-saved", test: /تصدي.{0,12}(ركلة|ضربة) جزاء/ },
+  { key: "penalty-awarded", test: /إحراز (ركلة|ضربة) جزاء/ },
+  { key: "penalty", test: /^(ركلة|ضربة) جزاء$/ },
+  { key: "assist", test: /مساعدة|صناعة/ },
+  { key: "goal", test: /هدف/ },
+  { key: "second-yellow", test: /صفراء ثانية/ },
+  { key: "yellow-card", test: /صفراء/ },
+  { key: "red-card", test: /حمراء|طرد/ },
+  { key: "substitution", test: /تبديل|خروج|نزول/ },
+  { key: "injury", test: /إصاب/ },
+  { key: "corner", test: /ركنية|كورنر/ },
+  { key: "offside", test: /تسلل/ },
+  { key: "freekick", test: /ركلة حرة|مخالفة/ },
+  { key: "save", test: /تصدي|إنقاذ/ },
+  { key: "var", test: /تقنية الفيديو|الفيديو/ },
+  { key: "woodwork", test: /القائم|العارضة/ },
+  { key: "shot", test: /تسديد|رأسية/ },
+  { key: "kick-off", test: /بداية|انطلاق/ },
+  { key: "half-time", test: /نهاية الشوط الأول/ },
+  { key: "full-time", test: /نهاية المباراة|انتهت/ },
+  { key: "lineup", test: /التشكيل/ },
+];
+
+/** يوحّد نوع الحدث: يقبل المفاتيح الإنجليزية أو الاسم العربي القادم من المصدر. */
+export function normalizeEventType(raw: string): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "";
+  if (EVENT_LABEL[value]) return value;
+  const found = ARABIC_TYPES.find((t) => t.test.test(value));
+  return found ? found.key : value;
+}
+
+export const eventLabel = (type: string) => EVENT_LABEL[normalizeEventType(type)] ?? type;
+
 
 export function eventEmoji(type: string): string {
   if (/own-goal/.test(type)) return "🥅";
