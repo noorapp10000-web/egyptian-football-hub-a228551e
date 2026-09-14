@@ -68,7 +68,8 @@ export function normalizeEventType(raw: string): string {
 export const eventLabel = (type: string) => EVENT_LABEL[normalizeEventType(type)] ?? type;
 
 
-export function eventEmoji(type: string): string {
+export function eventEmoji(raw: string): string {
+  const type = normalizeEventType(raw);
   if (/own-goal/.test(type)) return "🥅";
   if (/goal|^penalty$/.test(type)) return "⚽";
   if (/missed-penalty|penalty-saved/.test(type)) return "❌";
@@ -84,11 +85,13 @@ export function eventEmoji(type: string): string {
   if (/var/.test(type)) return "📺";
   if (/freekick/.test(type)) return "🦶";
   if (/shot|chance/.test(type)) return "💥";
+  if (/assist/.test(type)) return "🅰️";
   if (/lineup/.test(type)) return "📋";
   return "•";
 }
 
-export function eventTone(type: string): string {
+export function eventTone(raw: string): string {
+  const type = normalizeEventType(raw);
   if (/own-goal/.test(type)) return "border-destructive/40 bg-destructive/10 text-destructive";
   if (/goal|^penalty$/.test(type)) return "border-primary/40 bg-primary/10 text-primary";
   if (/red/.test(type)) return "border-live/40 bg-live/10 text-live";
